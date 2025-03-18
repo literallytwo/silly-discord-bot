@@ -124,6 +124,10 @@ const commands = [
   new SlashCommandBuilder()
     .setName('statusmeanings')
     .setDescription('Learn what the different status indicators mean'),
+
+  new SlashCommandBuilder()
+    .setName('reportissue')
+    .setDescription('Get information about reporting issues with the bot'),
 ]
 .map(command => command.toJSON());
 
@@ -438,6 +442,13 @@ client.on('interactionCreate', async interaction => {
   else if (commandName === 'statusmeanings') {
     await interaction.reply({
       content: `🟢: Up! though, not 24/7 until creator has found hosting, if this is the status, it will be up from any time after 06:00 GMT, and will most likely be down shortly after midnight\n🟠: Is unstable, can be for many reasons, could be electricity issues, maintenance, etc might be a bit unstable to use, like going down randomly but otherwise, same as green\n🔴: Down, could be a power cut, big update, or anything else, this isn't constantly updated so even if the bot is offline, it might still be orange/green, especially for green, as it is not updated if i am not able to (like sleeping)\n❗: Bot has been hacked`,
+      ephemeral: true
+    });
+  }
+
+  else if (commandName === 'reportissue') {
+    await interaction.reply({
+      content: "You can report bugs with the bot at https://github.com/literallytwo/silly-discord-bot/issues, a better system may be created later, but for now you just need a github account",
       ephemeral: true
     });
   }
