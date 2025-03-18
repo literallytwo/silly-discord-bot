@@ -1,5 +1,5 @@
 # silly discord bot
-this is my silly discord bot <sub><sup>(that is made with ai)<sup><sub> that i've decided to open source! its very silly and pretty constantly updated
+this is my silly discord bot <sub><sup>(that is made with ai)</sup></sub> that i've decided to open source! its very silly and pretty constantly updated
 
 
 ## What to do with the code
