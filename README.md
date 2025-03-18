@@ -1,6 +1,6 @@
 # silly discord bot
-this is my silly discord bot that i've decided to open source! its very silly and pretty constantly updated
-<sub><sup>(that is made with ai)<sup><sub>
+this is my silly discord bot <sub><sup>(that is made with ai)<sup><sub> that i've decided to open source! its very silly and pretty constantly updated
+
 
 ## What to do with the code
 you can do whatever you want with it, though i don't think theres many uses, just reading the discord.js docs would be better, i just chose to open source it so anyone that needs it can use it
