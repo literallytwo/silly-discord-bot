@@ -1,6 +1,5 @@
 // Import required modules
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, AttachmentBuilder, Collection } = require('discord.js');
-const fs = require('fs');
 const { Ollama } = require('ollama');
 require('dotenv').config();
 
@@ -18,37 +17,8 @@ const TOKEN = process.env.DISCORD_TOKEN;
 // Your application's client ID
 const CLIENT_ID = process.env.CLIENT_ID;
 
-// File path for storing thread data
-const THREADS_FILE = './thread_data.json';
-
 // Store active AI threads
 const aiThreads = new Collection();
-
-// Function to save thread data to file
-function saveThreads() {
-  try {
-    const threadData = Object.fromEntries(aiThreads);
-    fs.writeFileSync(THREADS_FILE, JSON.stringify(threadData, null, 2));
-  } catch (error) {
-    console.error('Error saving thread data:', error);
-  }
-}
-
-// Function to load thread data from file
-function loadThreads() {
-  try {
-    if (fs.existsSync(THREADS_FILE)) {
-      const data = fs.readFileSync(THREADS_FILE, 'utf8');
-      const threadData = JSON.parse(data);
-      Object.entries(threadData).forEach(([id, data]) => {
-        aiThreads.set(id, data);
-      });
-      console.log(`Loaded ${aiThreads.size} AI threads from storage`);
-    }
-  } catch (error) {
-    console.error('Error loading thread data:', error);
-  }
-}
 
 // Define sigma user IDs
 const sigmaIds = ['863963856220454943', '694587798598058004'];
@@ -294,7 +264,6 @@ function uwuify(text) {
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
   console.log('The silly bot is online! 🤪');
-  loadThreads(); // Load saved thread data
 });
 
 // Register slash commands
@@ -428,9 +397,7 @@ client.on('interactionCreate', async interaction => {
         }]
       });
       
-      saveThreads(); // Save thread data after creation
-      
-      await thread.send(`This AI thread is now active using the ${modelToUse} model. I'll remember our conversation in this thread. Feel free to ask me anything!`);
+      await thread.send(`This AI thread is now active using the ${modelToUse} model. I'll remember our conversation in this thread. Feel free to ask me anything!\n\n**Note:** This thread will not be saved once the bot restarts, the creator is hard at work to find some sort of alternative to allow this`);
       
       await interaction.reply({
         content: `Created an AI thread with topic: "${topic}"`,
@@ -513,9 +480,6 @@ client.on('messageCreate', async message => {
       
       // Update the thread data in our collection
       aiThreads.set(message.channel.id, threadData);
-      
-      // Save the updated thread data
-      saveThreads();
       
       // Send the AI's response
       await message.channel.send(response.message.content);
