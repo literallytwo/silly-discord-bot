@@ -191,6 +191,14 @@ const commands = [
   new SlashCommandBuilder()
     .setName('reportissue')
     .setDescription('Get information about reporting issues with the bot'),
+
+  new SlashCommandBuilder()
+    .setName('whatis')
+    .setDescription('Ask what something is')
+    .addStringOption(option => 
+      option.setName('thing')
+        .setDescription('What do you want to know about?')
+        .setRequired(true)),
 ]
 .map(command => command.toJSON());
 
@@ -515,6 +523,25 @@ client.on('interactionCreate', async interaction => {
       content: "You can report bugs with the bot at https://github.com/literallytwo/silly-discord-bot/issues, a better system may be created later, but for now you just need a github account",
       ephemeral: true
     });
+  }
+
+  else if (commandName === 'whatis') {
+    const thing = interaction.options.getString('thing').toLowerCase();
+    let response;
+
+    if (thing === 'love') {
+      response = "Baby don't hurt me, don't hurt me";
+    } else if (thing === 'this bot') {
+      response = "a silly one";
+    } else if (thing === "bot's status" || thing === "the bot's status") {
+      response = "Look at my status!";
+    } else if (thing.includes('creator')) {
+      response = "Literally two.... sorry if this is unrelated";
+    } else {
+      response = "¯\\_(ツ)_/¯";
+    }
+
+    await interaction.reply(response);
   }
 });
 
