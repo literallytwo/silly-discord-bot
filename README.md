@@ -7,3 +7,6 @@ you can do whatever you want with it, though i don't think theres many uses, jus
 
 ## I WANT THIS!
 Currently, the bot is only in one server, i plan on making it public VERY soon, but theres some stuff to get figured out with the permissions (though i think normal "member" permissions for most servers will do)
+
+## The AI
+this is a pretty controversial topic, so i'll just say that even if this is made with ai, i do look at the code and make sure the ai isn't trying to delete system32 or something, so i'm not an ai vibe coder kind of person
