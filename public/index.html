@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Status Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #36393f;
+            color: #ffffff;
+        }
+        .container {
+            background-color: #2f3136;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #7289da;
+            margin-bottom: 20px;
+        }
+        .status-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .status-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .status-button:hover {
+            transform: scale(1.05);
+        }
+        .status-green {
+            background-color: #43b581;
+            color: white;
+        }
+        .status-orange {
+            background-color: #faa61a;
+            color: white;
+        }
+        .status-red {
+            background-color: #f04747;
+            color: white;
+        }
+        .status-hacked {
+            background-color: #9b84ee;
+            color: white;
+        }
+        .current-status {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #202225;
+            border-radius: 4px;
+            font-size: 18px;
+        }
+        .status-text {
+            margin-top: 20px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #202225;
+            border-radius: 4px;
+            background-color: #40444b;
+            color: white;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #7289da;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bot Status Control</h1>
+        <div class="status-buttons">
+            <button class="status-button status-green" onclick="setStatus('green')">🟢 Up</button>
+            <button class="status-button status-orange" onclick="setStatus('orange')">🟠 Unstable</button>
+            <button class="status-button status-red" onclick="setStatus('red')">🔴 Down</button>
+            <button class="status-button status-hacked" onclick="setStatus('hacked')">❗ Hacked</button>
+        </div>
+        <div class="status-text">
+            <label for="customStatus">Custom Status Message (optional):</label>
+            <input type="text" id="customStatus" placeholder="Enter custom status message...">
+        </div>
+        <div class="current-status">
+            Current Status: <span id="currentStatus">Loading...</span>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 

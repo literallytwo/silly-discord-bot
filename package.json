@@ -1,17 +1,18 @@
 {
   "name": "silly-discord-bot",
   "version": "1.0.0",
+  "description": "A silly Discord bot",
   "main": "sillybot.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node sillybot.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "discord.js": "^14.18.0",
-    "dotenv": "^16.4.7",
-    "ollama": "^0.5.14"
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.1",
+    "express": "^4.21.2",
+    "ollama": "^0.4.8"
   }
 }

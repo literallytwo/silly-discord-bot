@@ -1,6 +1,8 @@
 // Import required modules
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, AttachmentBuilder, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, AttachmentBuilder, Collection, ActivityType } = require('discord.js');
 const { Ollama } = require('ollama');
+const express = require('express');
+const path = require('path');
 require('dotenv').config();
 
 // Create a new client instance
@@ -19,6 +21,67 @@ const CLIENT_ID = process.env.CLIENT_ID;
 
 // Store active AI threads
 const aiThreads = new Collection();
+
+// Current bot status
+let currentStatus = {
+    status: 'green',
+    message: ''
+};
+
+// Create Express app
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// API endpoints
+app.get('/api/status', (req, res) => {
+    res.json(currentStatus);
+});
+
+app.post('/api/status', (req, res) => {
+    const { status, message } = req.body;
+    if (['green', 'orange', 'red', 'hacked'].includes(status)) {
+        currentStatus = { status, message };
+        updateBotStatus();
+        res.json({ success: true });
+    } else {
+        res.status(400).json({ success: false, error: 'Invalid status' });
+    }
+});
+
+// Function to update bot's rich presence
+function updateBotStatus() {
+    const statusEmojis = {
+        'green': '🟢',
+        'orange': '🟠',
+        'red': '🔴',
+        'hacked': '❗'
+    };
+
+    const statusDescriptions = {
+        'green': 'Online',
+        'orange': 'Unstable',
+        'red': 'Offline',
+        'hacked': 'Hacked'
+    };
+
+    const statusText = currentStatus.message 
+        ? `${statusEmojis[currentStatus.status]} ${currentStatus.message}`
+        : `${statusEmojis[currentStatus.status]} ${statusDescriptions[currentStatus.status]}`;
+
+    client.user.setPresence({
+        activities: [{
+            type: ActivityType.Custom,
+            name: statusText
+        }]
+    });
+}
+
+// Start Express server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Status control UI available at http://localhost:${PORT}`);
+});
 
 // Define sigma user IDs
 const sigmaIds = ['863963856220454943', '694587798598058004'];
@@ -268,6 +331,7 @@ function uwuify(text) {
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
   console.log('The silly bot is online! 🤪');
+  updateBotStatus(); // Set initial status
 });
 
 // Register slash commands
@@ -441,7 +505,7 @@ client.on('interactionCreate', async interaction => {
 
   else if (commandName === 'statusmeanings') {
     await interaction.reply({
-      content: `🟢: Up! though, not 24/7 until creator has found hosting, if this is the status, it will be up from any time after 06:00 GMT, and will most likely be down shortly after midnight\n🟠: Is unstable, can be for many reasons, could be electricity issues, maintenance, etc might be a bit unstable to use, like going down randomly but otherwise, same as green\n🔴: Down, could be a power cut, big update, or anything else, this isn't constantly updated so even if the bot is offline, it might still be orange/green, especially for green, as it is not updated if i am not able to (like sleeping)\n❗: Bot has been hacked`,
+      content: `🟢: Up! though, not 24/7 until creator has found hosting, if this is the status, it will be up from any time after 06:00 GMT, and will most likely be down shortly after midnight (May show temporarily even when the bot goes offline and has no status, running a command with the bot will fix this issue, this applies to orange/unstable too)\n🟠: Is unstable, can be for many reasons, could be electricity issues, maintenance, etc might be a bit unstable to use, like going down randomly but otherwise, same as green\n🔴: Down, could be a power cut, big update, or anything else, this isn't constantly updated so even if the bot is offline, it might still be orange/green, especially for green, as it is not updated if i am not able to (like sleeping) (You will very rarely see this due to the fact that well, if it's offline, then with the new status system, it will not show a status)\n❗: Bot has been hacked (Will probably never be seen already as well, I don't really go out leaking my .env, but if the bot somehow does get hacked, the hacker will probably remove this status anyway, so if you see it, i might just be testing the bot)`,
       ephemeral: true
     });
   }
