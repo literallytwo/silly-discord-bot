@@ -495,8 +495,7 @@ client.on('interactionCreate', async interaction => {
     const isSigma = sigmaIds.includes(userId);
     
     await interaction.reply({
-      content: isSigma ? 'Yes' : 'No',
-      ephemeral: false
+      content: isSigma ? 'Yes' : 'No'
     });
   }
   
@@ -506,8 +505,7 @@ client.on('interactionCreate', async interaction => {
     const isBeta = !sigmaIds.includes(userId);
     
     await interaction.reply({
-      content: isBeta ? 'Yes' : 'No',
-      ephemeral: false
+      content: isBeta ? 'Yes' : 'No'
     });
   }
 
