@@ -1,5 +1,6 @@
 sorted by priority, higher up the higher priority (doesn't always mean they'll be done sooner, just that they'll most likely be done before lower priority)
 
+-finish the discord server for the bot
 - get hosting
 - get a privacy policy and tos so bot can be approved by the super duper discord people (and add to a team but that's easy)
 - get bot verified
