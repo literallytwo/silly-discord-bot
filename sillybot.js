@@ -364,182 +364,190 @@ client.on('interactionCreate', async interaction => {
 
   const { commandName } = interaction;
 
-  if (commandName === 'silly') {
-    const randomResponse = sillyResponses[Math.floor(Math.random() * sillyResponses.length)];
-    await interaction.reply(randomResponse);
-  } 
-  
-  else if (commandName === 'joke') {
-    const randomJoke = jokes[Math.floor(Math.random() * jokes.length)];
-    await interaction.reply(randomJoke);
-  } 
-  
-  else if (commandName === 'flip') {
-    const result = Math.random() > 0.5 ? 'Heads' : 'Tails';
-    await interaction.reply(`Flipped a coin and got: **${result}**!`);
-  } 
-  
-  else if (commandName === 'mock') {
-    const text = interaction.options.getString('text');
-    await interaction.reply(mockText(text));
-  } 
-  
-  else if (commandName === 'dance') {
-    const dances = [
-      "ᕕ( ᐛ )ᕗ",
-      "♪┏(・o･)┛♪┗ ( ･o･) ┓♪",
-      "(づ￣ ³￣)づ",
-      "ƪ(˘⌣˘)ʃ",
-      "ᕕ(⌐■_■)ᕗ ♪♬",
-      "~(˘▾˘~)",
-      "┌(・◡・)┘♪",
-      "ヾ(-_- )ゞ",
-      "⁽⁽◝( •௰• )◜⁾⁾",
-      "₍₍ ◝(　ﾟ∀ ﾟ )◟ ⁾⁾"
-    ];
-    const randomDance = dances[Math.floor(Math.random() * dances.length)];
-    await interaction.reply(randomDance);
-  } 
-  
-  else if (commandName === 'uwuify') {
-    const text = interaction.options.getString('text');
-    await interaction.reply(uwuify(text));
-  }
-  
-  else if (commandName === 'askai') {
-    const question = interaction.options.getString('question');
-    const isPrivate = interaction.options.getBoolean('private') || false;
+  switch (commandName) {
+    case 'silly':
+      const randomResponse = sillyResponses[Math.floor(Math.random() * sillyResponses.length)];
+      await interaction.reply(randomResponse);
+      break;
     
-    await interaction.deferReply({ ephemeral: isPrivate });
+    case 'joke':
+      const randomJoke = jokes[Math.floor(Math.random() * jokes.length)];
+      await interaction.reply(randomJoke);
+      break;
     
-    try {
-      const modelToUse = await getPreferredModel();
-      
-      const response = await ollama.chat({
-        model: modelToUse,
-        messages: [
-          { 
-            role: 'user', 
-            content: question 
-          }
-        ]
-      });
-      
-      await interaction.editReply({
-        content: response.message.content
-      });
-    } catch (error) {
-      console.error('Error querying Ollama:', error);
-      await interaction.editReply({
-        content: `The AI got an error, might be a traffic issue since it is ran locally, it may also be that the owner messed something up, so try pinging them if they are in the server, otherwise they might see the error in their logs and fix it.`
-      });
-    }
-  }
-  
-  else if (commandName === 'holeinmybrain') {
-    await interaction.reply('https://cdn.discordapp.com/attachments/1038238583686967428/1346976091599929476/i_have_a_hole_in_my_brain.mp4?ex=67ca24bd&is=67c8d33d&hm=91ddeb881a2a758c16319e594ea8828c7a75eb3e8b45c79148b6ea1cf50a74c2&');
-  }
-  
-  else if (commandName === 'funnyspeak') {
-    // Create attachment from the local file
-    const videoFile = new AttachmentBuilder('./9f6ea310-b19a-43d1-9e47-579e2175a038_online-video-cutter.com.mp4');
-    await interaction.reply({ files: [videoFile] });
-  }
-  
-  else if (commandName === 'aithread') {
-    if (interaction.channel.isThread()) {
-      return await interaction.reply({
-        content: "You cannot create a thread in a thread, that would be threadception! Try in the root channel.",
-        ephemeral: true
-      });
-    }
+    case 'flip':
+      const result = Math.random() > 0.5 ? 'Heads' : 'Tails';
+      await interaction.reply(`Flipped a coin and got: **${result}**!`);
+      break;
     
-    const topic = interaction.options.getString('topic') || 'AI Chat Thread';
+    case 'mock':
+      const textToMock = interaction.options.getString('text');
+      await interaction.reply(mockText(textToMock));
+      break;
     
-    try {
-      const thread = await interaction.channel.threads.create({
-        name: topic,
-        autoArchiveDuration: 60,
-        reason: 'AI conversation thread'
-      });
+    case 'dance':
+      const dances = [
+        "ᕕ( ᐛ )ᕗ",
+        "♪┏(・o･)┛♪┗ ( ･o･) ┓♪",
+        "(づ￣ ³￣)づ",
+        "ƪ(˘⌣˘)ʃ",
+        "ᕕ(⌐■_■)ᕗ ♪♬",
+        "~(˘▾˘~)",
+        "┌(・◡・)┘♪",
+        "ヾ(-_- )ゞ",
+        "⁽⁽◝( •௰• )◜⁾⁾",
+        "₍₍ ◝(　ﾟ∀ ﾟ )◟ ⁾⁾"
+      ];
+      const randomDance = dances[Math.floor(Math.random() * dances.length)];
+      await interaction.reply(randomDance);
+      break;
+    
+    case 'uwuify':
+      const textToUwuify = interaction.options.getString('text');
+      await interaction.reply(uwuify(textToUwuify));
+      break;
+    
+    case 'askai':
+      const question = interaction.options.getString('question');
+      const isPrivate = interaction.options.getBoolean('private') || false;
       
-      const modelToUse = await getPreferredModel();
+      await interaction.deferReply({ ephemeral: isPrivate });
       
-      aiThreads.set(thread.id, {
-        modelName: modelToUse,
-        messages: [{
-          role: 'system',
-          content: `You are a helpful AI assistant in a Discord conversation. Be friendly, concise, and informative. You will be speaking with different users in this thread, each user's message will include both their username and nickname so you can address them properly.`
-        }]
-      });
+      try {
+        const modelToUse = await getPreferredModel();
+        
+        const response = await ollama.chat({
+          model: modelToUse,
+          messages: [
+            { 
+              role: 'user', 
+              content: question 
+            }
+          ]
+        });
+        
+        await interaction.editReply({
+          content: response.message.content
+        });
+      } catch (error) {
+        console.error('Error querying Ollama:', error);
+        await interaction.editReply({
+          content: `The AI got an error, might be a traffic issue since it is ran locally, it may also be that the owner messed something up, so try pinging them if they are in the server, otherwise they might see the error in their logs and fix it.`
+        });
+      }
+      break;
+    
+    case 'holeinmybrain':
+      await interaction.reply('https://cdn.discordapp.com/attachments/1038238583686967428/1346976091599929476/i_have_a_hole_in_my_brain.mp4?ex=67ca24bd&is=67c8d33d&hm=91ddeb881a2a758c16319e594ea8828c7a75eb3e8b45c79148b6ea1cf50a74c2&');
+      break;
+    
+    case 'funnyspeak':
+      // Create attachment from the local file
+      const videoFile = new AttachmentBuilder('./9f6ea310-b19a-43d1-9e47-579e2175a038_online-video-cutter.com.mp4');
+      await interaction.reply({ files: [videoFile] });
+      break;
+    
+    case 'aithread':
+      if (interaction.channel.isThread()) {
+        return await interaction.reply({
+          content: "You cannot create a thread in a thread, that would be threadception! Try in the root channel.",
+          ephemeral: true
+        });
+      }
       
-      await thread.send(`This AI thread is now active using the ${modelToUse} model. I'll remember our conversation in this thread. Feel free to ask me anything!\n\n**Note:** This thread will not be saved once the bot restarts, the creator is hard at work to find some sort of alternative to allow this`);
+      const topic = interaction.options.getString('topic') || 'AI Chat Thread';
+      
+      try {
+        const thread = await interaction.channel.threads.create({
+          name: topic,
+          autoArchiveDuration: 60,
+          reason: 'AI conversation thread'
+        });
+        
+        const modelToUse = await getPreferredModel();
+        
+        aiThreads.set(thread.id, {
+          modelName: modelToUse,
+          messages: [{
+            role: 'system',
+            content: `You are a helpful AI assistant in a Discord conversation. Be friendly, concise, and informative. You will be speaking with different users in this thread, each user's message will include both their username and nickname so you can address them properly.`
+          }]
+        });
+        
+        await thread.send(`This AI thread is now active using the ${modelToUse} model. I'll remember our conversation in this thread. Feel free to ask me anything!\n\n**Note:** This thread will not be saved once the bot restarts, the creator is hard at work to find some sort of alternative to allow this`);
+        
+        await interaction.reply({
+          content: `Created an AI thread with topic: "${topic}"`,
+          ephemeral: true
+        });
+        
+      } catch (error) {
+        console.error('Error creating AI thread:', error);
+        await interaction.reply({
+          content: `Sorry, I couldn't create an AI thread.`,
+          ephemeral: true
+        });
+      }
+      break;
+    
+    case 'amisigma':
+      // Check if the user's ID is one of the specified sigma IDs
+      const sigmauserId = interaction.user.id;
+      const isSigma = sigmaIds.includes(sigmauserId);
       
       await interaction.reply({
-        content: `Created an AI thread with topic: "${topic}"`,
-        ephemeral: true
+        content: isSigma ? 'Yes' : 'No'
       });
+      break;
+    
+    case 'amibeta':
+      // Inverse of amisigma - check if user is NOT one of the sigma IDs
+      const betauserId = interaction.user.id;
+      const isBeta = !sigmaIds.includes(betauserId);
       
-    } catch (error) {
-      console.error('Error creating AI thread:', error);
       await interaction.reply({
-        content: `Sorry, I couldn't create an AI thread.`,
+        content: isBeta ? 'Yes' : 'No'
+      });
+      break;
+    
+    case 'statusmeanings':
+      await interaction.reply({
+        content: `🟢: Up! though, not 24/7 until creator has found hosting, if this is the status, it will be up from any time after 06:00 GMT, and will most likely be down shortly after midnight (May show temporarily even when the bot goes offline and has no status, running a command with the bot will fix this issue, this applies to orange/unstable too)\n🟠: Is unstable, can be for many reasons, could be electricity issues, maintenance, etc might be a bit unstable to use, like going down randomly but otherwise, same as green\n🔴: Down, could be a power cut, big update, or anything else, this isn't constantly updated so even if the bot is offline, it might still be orange/green, especially for green, as it is not updated if i am not able to (like sleeping) (You will very rarely see this due to the fact that well, if it's offline, then with the new status system, it will not show a status)\n❗: Bot has been hacked (Will probably never be seen already as well, I don't really go out leaking my .env, but if the bot somehow does get hacked, the hacker will probably remove this status anyway, so if you see it, i might just be testing the bot)`,
         ephemeral: true
       });
-    }
-  }
-  
-  else if (commandName === 'amisigma') {
-    // Check if the user's ID is one of the specified sigma IDs
-    const userId = interaction.user.id;
-    const isSigma = sigmaIds.includes(userId);
+      break;
     
-    await interaction.reply({
-      content: isSigma ? 'Yes' : 'No'
-    });
-  }
-  
-  else if (commandName === 'amibeta') {
-    // Inverse of amisigma - check if user is NOT one of the sigma IDs
-    const userId = interaction.user.id;
-    const isBeta = !sigmaIds.includes(userId);
+    case 'reportissue':
+      await interaction.reply({
+        content: "You can report bugs with the bot at https://github.com/literallytwo/silly-discord-bot/issues, a better system may be created later, but for now you just need a github account",
+        ephemeral: true
+      });
+      break;
     
-    await interaction.reply({
-      content: isBeta ? 'Yes' : 'No'
-    });
-  }
-
-  else if (commandName === 'statusmeanings') {
-    await interaction.reply({
-      content: `🟢: Up! though, not 24/7 until creator has found hosting, if this is the status, it will be up from any time after 06:00 GMT, and will most likely be down shortly after midnight (May show temporarily even when the bot goes offline and has no status, running a command with the bot will fix this issue, this applies to orange/unstable too)\n🟠: Is unstable, can be for many reasons, could be electricity issues, maintenance, etc might be a bit unstable to use, like going down randomly but otherwise, same as green\n🔴: Down, could be a power cut, big update, or anything else, this isn't constantly updated so even if the bot is offline, it might still be orange/green, especially for green, as it is not updated if i am not able to (like sleeping) (You will very rarely see this due to the fact that well, if it's offline, then with the new status system, it will not show a status)\n❗: Bot has been hacked (Will probably never be seen already as well, I don't really go out leaking my .env, but if the bot somehow does get hacked, the hacker will probably remove this status anyway, so if you see it, i might just be testing the bot)`,
-      ephemeral: true
-    });
-  }
-
-  else if (commandName === 'reportissue') {
-    await interaction.reply({
-      content: "You can report bugs with the bot at https://github.com/literallytwo/silly-discord-bot/issues, a better system may be created later, but for now you just need a github account",
-      ephemeral: true
-    });
-  }
-
-  else if (commandName === 'whatis') {
-    const thing = interaction.options.getString('thing').toLowerCase();
-    let response;
-
-    if (thing === 'love') {
-      response = "Baby don't hurt me, don't hurt me";
-    } else if (thing === 'this bot') {
-      response = "a silly one";
-    } else if (thing === "bot's status" || thing === "the bot's status") {
-      response = "Look at my status!";
-    } else if (thing.includes('creator')) {
-      response = "Literally two.... sorry if this is unrelated";
-    } else {
-      response = "¯\\_(ツ)_/¯";
-    }
-
-    await interaction.reply(response);
+    case 'whatis':
+      const thing = interaction.options.getString('thing').toLowerCase();
+      let response;
+  
+      if (thing === 'love') {
+        response = "Baby don't hurt me, don't hurt me";
+      } else if (thing === 'this bot') {
+        response = "a silly one";
+      } else if (thing === "bot's status" || thing === "the bot's status") {
+        response = "Look at my status!";
+      } else if (thing.includes('creator')) {
+        response = "Literally two.... sorry if this is unrelated";
+      } else {
+        response = "¯\\_(ツ)_/¯";
+      }
+  
+      await interaction.reply(response);
+      break;
+      
+    default:
+      await interaction.reply({
+        content: "Command not found, maybe try refreshing your discord, and if that doesn't work well... i dunno ¯\\_(ツ)_/¯",
+        ephemeral: true
+      });
   }
 });
 
