@@ -470,7 +470,7 @@ client.on('interactionCreate', async interaction => {
           modelName: modelToUse,
           messages: [{
             role: 'system',
-            content: `You are a helpful AI assistant in a Discord conversation. Be friendly, concise, and informative. You will be speaking with different users in this thread, each user's message will include both their username and nickname so you can address them properly.`
+            content: `You are a helpful AI assistant in a Discord conversation. Be friendly, concise, and informative. You will be speaking with different users in this thread, each user's message will include both their username and nickname so you can address them properly, their nickname will be shown in parenthesis after their username, if they don't have a nickname, it will just show their username.`
           }]
         });
         
