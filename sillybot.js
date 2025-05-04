@@ -1,6 +1,6 @@
 // Import required modules
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, AttachmentBuilder, Collection, ActivityType } = require('discord.js');
-const { Ollama } = require('ollama');
+// Ollama AI library removed (AI commands disabled)
 const express = require('express');
 const path = require('path');
 require('dotenv').config();
@@ -19,8 +19,7 @@ const TOKEN = process.env.DISCORD_TOKEN;
 // Your application's client ID
 const CLIENT_ID = process.env.CLIENT_ID;
 
-// Store active AI threads
-const aiThreads = new Collection();
+// AI threads collection removed (AI commands disabled)
 
 // Current bot status
 let currentStatus = {
@@ -149,16 +148,8 @@ const commands = [
         .setRequired(true)),
   
   new SlashCommandBuilder()
-    .setName('askai')
-    .setDescription('Ask the AI a question')
-    .addStringOption(option => 
-      option.setName('question')
-        .setDescription('The question to ask the AI')
-        .setRequired(true))
-    .addBooleanOption(option => 
-      option.setName('private')
-        .setDescription('Send the response only to you')
-        .setRequired(false)),
+    .setName('aicommands')
+    .setDescription('Information about removed AI commands'),
         
   new SlashCommandBuilder()
     .setName('holeinmybrain')
@@ -167,14 +158,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('funnyspeak')
     .setDescription('Funny speaking video'),
-  
-  new SlashCommandBuilder()
-    .setName('aithread')
-    .setDescription('Create a new thread with an AI that remembers the conversation')
-    .addStringOption(option => 
-      option.setName('topic')
-        .setDescription('The topic of discussion (optional)')
-        .setRequired(false)),
   
   new SlashCommandBuilder()
     .setName('amisigma')
@@ -205,33 +188,7 @@ const commands = [
 // Initialize REST API client
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-// Initialize Ollama client with explicit host
-const ollama = new Ollama({ host: 'http://localhost:11434' });
-
-// Function to get the preferred AI model
-async function getPreferredModel() {
-  try {
-    const models = await ollama.list();
-    let modelToUse = 'llama3.2:latest'; // Default preference
-    
-    if (models?.models?.length > 0) {
-      const modelNames = models.models.map(m => m.name);
-      
-      if (!modelNames.includes('llama3.2:latest')) {
-        if (modelNames.includes('llama3.1:latest')) {
-          modelToUse = 'llama3.1:latest';
-        } else if (modelNames.length > 0) {
-          modelToUse = modelNames[0];
-        }
-      }
-    }
-    
-    return modelToUse;
-  } catch (error) {
-    console.error('Error getting AI models:', error);
-    return 'llama3.2:latest'; // Fallback to default if error
-  }
-}
+// AI functionality removed (Ollama client and getPreferredModel function)
 
 // Function to convert text to SpOnGeBoB cAsE
 function mockText(text) {
@@ -407,34 +364,11 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply(uwuify(textToUwuify));
       break;
     
-    case 'askai':
-      const question = interaction.options.getString('question');
-      const isPrivate = interaction.options.getBoolean('private') || false;
-      
-      await interaction.deferReply({ ephemeral: isPrivate });
-      
-      try {
-        const modelToUse = await getPreferredModel();
-        
-        const response = await ollama.chat({
-          model: modelToUse,
-          messages: [
-            { 
-              role: 'user', 
-              content: question 
-            }
-          ]
-        });
-        
-        await interaction.editReply({
-          content: response.message.content
-        });
-      } catch (error) {
-        console.error('Error querying Ollama:', error);
-        await interaction.editReply({
-          content: `The AI got an error, might be a traffic issue since it is ran locally, it may also be that the owner messed something up, so try pinging them if they are in the server, otherwise they might see the error in their logs and fix it.`
-        });
-      }
+    case 'aicommands':
+      await interaction.reply({
+        content: "Discord has recently been taking down many AI bots, especially shapes bots, so to prevent the bot from being taken down, AI commands have been removed.",
+        ephemeral: true
+      });
       break;
     
     case 'holeinmybrain':
@@ -445,49 +379,6 @@ client.on('interactionCreate', async interaction => {
       // Create attachment from the local file
       const videoFile = new AttachmentBuilder('./9f6ea310-b19a-43d1-9e47-579e2175a038_online-video-cutter.com.mp4');
       await interaction.reply({ files: [videoFile] });
-      break;
-    
-    case 'aithread':
-      if (interaction.channel.isThread()) {
-        return await interaction.reply({
-          content: "You cannot create a thread in a thread, that would be threadception! Try in the root channel.",
-          ephemeral: true
-        });
-      }
-      
-      const topic = interaction.options.getString('topic') || 'AI Chat Thread';
-      
-      try {
-        const thread = await interaction.channel.threads.create({
-          name: topic,
-          autoArchiveDuration: 60,
-          reason: 'AI conversation thread'
-        });
-        
-        const modelToUse = await getPreferredModel();
-        
-        aiThreads.set(thread.id, {
-          modelName: modelToUse,
-          messages: [{
-            role: 'system',
-            content: `You are a helpful AI assistant in a Discord conversation. Be friendly, concise, and informative. You will be speaking with different users in this thread, each user's message will include both their username and nickname so you can address them properly, their nickname will be shown in parenthesis after their username, if they don't have a nickname, it will just show their username.`
-          }]
-        });
-        
-        await thread.send(`This AI thread is now active using the ${modelToUse} model. I'll remember our conversation in this thread. Feel free to ask me anything!\n\n**Note:** This thread will not be saved once the bot restarts, the creator is hard at work to find some sort of alternative to allow this`);
-        
-        await interaction.reply({
-          content: `Created an AI thread with topic: "${topic}"`,
-          ephemeral: true
-        });
-        
-      } catch (error) {
-        console.error('Error creating AI thread:', error);
-        await interaction.reply({
-          content: `Sorry, I couldn't create an AI thread.`,
-          ephemeral: true
-        });
-      }
       break;
     
     case 'amisigma':
@@ -551,53 +442,7 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// Monitor messages in AI threads
-client.on('messageCreate', async message => {
-  // Ignore messages from bots, including itself
-  if (message.author.bot) return;
-  
-  // Check if this message is in one of our AI threads
-  if (message.channel.isThread() && aiThreads.has(message.channel.id)) {
-    // Get the thread data
-    const threadData = aiThreads.get(message.channel.id);
-    
-    // Start "typing" indicator
-    message.channel.sendTyping();
-    
-    try {
-      // Add the user's message to history, including username and nickname info
-      const userNickname = message.member?.nickname || message.author.username;
-      const userIdentifier = `${message.author.username} (${userNickname})`;
-      
-      threadData.messages.push({
-        role: 'user',
-        content: `${userIdentifier}: ${message.content}`
-      });
-      
-      // Call Ollama with the updated conversation history
-      const response = await ollama.chat({
-        model: threadData.modelName,
-        messages: threadData.messages
-      });
-      
-      // Add the AI's response to the conversation history
-      threadData.messages.push({
-        role: 'assistant',
-        content: response.message.content
-      });
-      
-      // Update the thread data in our collection
-      aiThreads.set(message.channel.id, threadData);
-      
-      // Send the AI's response
-      await message.channel.send(response.message.content);
-      
-    } catch (error) {
-      console.error('Error in AI thread response:', error);
-      await message.channel.send(`I'm having trouble thinking right now. Please try again in a moment.`);
-    }
-  }
-});
+// AI threads message handler removed
 
 // Login to Discord with your token
 client.login(TOKEN);
