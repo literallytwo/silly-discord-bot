@@ -1,5 +1,5 @@
 // Import required modules
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, AttachmentBuilder, Collection, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, AttachmentBuilder, Collection, ActivityType, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 // Ollama AI library removed (AI commands disabled)
 const express = require('express');
 const path = require('path');
@@ -20,6 +20,10 @@ const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
 // AI threads collection removed (AI commands disabled)
+
+// Active duels state
+const activeDuels = new Collection();
+const usersInDuel = new Set();
 
 // Current bot status
 let currentStatus = {
@@ -181,6 +185,14 @@ const commands = [
     .addStringOption(option => 
       option.setName('thing')
         .setDescription('What do you want to know about?')
+        .setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName('quickfire')
+    .setDescription('Challenge another user to a quickfire duel!')
+    .addUserOption(option =>
+      option.setName('opponent')
+        .setDescription('The user you want to challenge')
         .setRequired(true)),
 ]
 .map(command => command.toJSON());
@@ -417,21 +429,89 @@ client.on('interactionCreate', async interaction => {
     
     case 'whatis':
       const thing = interaction.options.getString('thing').toLowerCase();
-      let response;
+      let responseText;
   
       if (thing === 'love') {
-        response = "Baby don't hurt me, don't hurt me";
+        responseText = "Baby don't hurt me, don't hurt me";
       } else if (thing === 'this bot') {
-        response = "a silly one";
+        responseText = "a silly one";
       } else if (thing === "bot's status" || thing === "the bot's status") {
-        response = "Look at my status!";
+        responseText = "Look at my status!";
       } else if (thing.includes('creator')) {
-        response = "Literally two.... sorry if this is unrelated";
+        responseText = "Literally two.... sorry if this is unrelated";
       } else {
-        response = "¯\\_(ツ)_/¯";
+        responseText = "¯\\_(ツ)_/¯";
       }
   
-      await interaction.reply(response);
+      await interaction.reply(responseText);
+      break;
+      
+    case 'quickfire':
+      const challenger = interaction.user;
+      const opponent = interaction.options.getUser('opponent');
+      const duelId = interaction.id; // Unique ID for this duel instance
+
+      if (opponent.bot) {
+        return interaction.reply({ content: 'You cannot challenge a bot to a Quickfire duel!', ephemeral: true });
+      }
+      if (opponent.id === challenger.id) {
+        return interaction.reply({ content: 'You cannot challenge yourself to a Quickfire duel!', ephemeral: true });
+      }
+      if (usersInDuel.has(challenger.id)) {
+        return interaction.reply({ content: 'You are already in a duel or have a pending challenge.', ephemeral: true });
+      }
+      if (usersInDuel.has(opponent.id)) {
+        return interaction.reply({ content: `${opponent.username} is already in a duel or has a pending challenge.`, ephemeral: true });
+      }
+
+      const acceptButton = new ButtonBuilder()
+        .setCustomId(`quickfire_accept_${duelId}`)
+        .setLabel('Accept')
+        .setStyle(ButtonStyle.Success);
+      const denyButton = new ButtonBuilder()
+        .setCustomId(`quickfire_deny_${duelId}`)
+        .setLabel('Deny')
+        .setStyle(ButtonStyle.Danger);
+      const cancelButton = new ButtonBuilder()
+        .setCustomId(`quickfire_cancel_${duelId}`)
+        .setLabel('Cancel Challenge')
+        .setStyle(ButtonStyle.Secondary);
+
+      const challengeRow = new ActionRowBuilder().addComponents(acceptButton, denyButton);
+      const cancelRow = new ActionRowBuilder().addComponents(cancelButton);
+
+      const challengeMessage = await interaction.reply({
+        content: `${opponent}, ${challenger.username} has challenged you to a Quickfire duel! You have 30 seconds to respond.`,
+        components: [challengeRow, cancelRow],
+        fetchReply: true
+      });
+
+      const acceptanceTimeout = setTimeout(async () => {
+        const duel = activeDuels.get(duelId);
+        if (duel && duel.status === 'pending_acceptance') {
+          await challengeMessage.edit({
+            content: `The Quickfire duel challenge from ${challenger.username} to ${opponent.username} has expired as ${opponent.username} did not respond.`, 
+            components: [] 
+          });
+          activeDuels.delete(duelId);
+          usersInDuel.delete(challenger.id);
+          usersInDuel.delete(opponent.id);
+        }
+      }, 30000);
+
+      activeDuels.set(duelId, {
+        challengerId: challenger.id,
+        challengerUser: challenger,
+        opponentId: opponent.id,
+        opponentUser: opponent,
+        status: 'pending_acceptance',
+        messageId: challengeMessage.id,
+        channelId: interaction.channelId,
+        acceptanceTimeout: acceptanceTimeout,
+        gameTimeout: null,
+      });
+      usersInDuel.add(challenger.id);
+      usersInDuel.add(opponent.id);
       break;
       
     default:
@@ -442,7 +522,149 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// AI threads message handler removed
+// Add this new block for button interactions
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isButton()) return;
+  if (!interaction.customId.startsWith('quickfire_')) return;
+
+  const [prefix, action, duelId] = interaction.customId.split('_');
+  const duel = activeDuels.get(duelId);
+
+  if (!duel) {
+    // Attempt to edit the original message if possible, otherwise just send an ephemeral reply
+    try {
+        await interaction.update({ content: "This duel is no longer active or has expired.", components: [] });
+    } catch (e) {
+        // If updating fails (e.g., original message deleted, or interaction already replied to), send ephemeral.
+        await interaction.reply({ content: "This duel is no longer active or has expired.", ephemeral: true });
+    }
+    return;
+  }
+
+  const message = await interaction.channel.messages.fetch(duel.messageId).catch(() => null);
+
+  switch (action) {
+    case 'accept':
+      if (interaction.user.id !== duel.opponentId) {
+        return interaction.reply({ content: 'Only the challenged user can accept this duel.', ephemeral: true });
+      }
+      if (duel.status !== 'pending_acceptance') {
+        return interaction.reply({ content: 'This duel can no longer be accepted.', ephemeral: true });
+      }
+
+      clearTimeout(duel.acceptanceTimeout);
+      duel.status = 'active_duel';
+
+      const fireButton = new ButtonBuilder()
+        .setCustomId(`quickfire_fire_${duelId}`)
+        .setLabel('🔥 FIRE! 🔥')
+        .setStyle(ButtonStyle.Primary);
+      const fireRow = new ActionRowBuilder().addComponents(fireButton);
+      
+      if (message) {
+        await message.edit({
+          content: `Duel accepted! ${duel.challengerUser.username} vs ${duel.opponentUser.username}!\nFirst to press FIRE wins! You have 5 seconds!⏳`,
+          components: [fireRow]
+        });
+      }
+      // Ephemeral confirmation for the clicker
+      await interaction.deferUpdate(); 
+
+      duel.gameTimeout = setTimeout(async () => {
+        const currentDuel = activeDuels.get(duelId);
+        if (currentDuel && currentDuel.status === 'active_duel') {
+          if (message) {
+            await message.edit({
+              content: `Time's up! ⌛ It's a TIE between ${currentDuel.challengerUser.username} and ${currentDuel.opponentUser.username}! Nobody pressed the button.`, 
+              components: [] 
+            });
+          }
+          activeDuels.delete(duelId);
+          usersInDuel.delete(currentDuel.challengerId);
+          usersInDuel.delete(currentDuel.opponentId);
+        }
+      }, 5000);
+      activeDuels.set(duelId, duel);
+      break;
+
+    case 'deny':
+      if (interaction.user.id !== duel.opponentId) {
+        return interaction.reply({ content: 'Only the challenged user can deny this duel.', ephemeral: true });
+      }
+      if (duel.status !== 'pending_acceptance') {
+        return interaction.reply({ content: 'This duel can no longer be denied.', ephemeral: true });
+      }
+
+      clearTimeout(duel.acceptanceTimeout);
+      if (message) {
+        await message.edit({ 
+          content: `${duel.opponentUser.username} has denied the Quickfire duel from ${duel.challengerUser.username}.`, 
+          components: [] 
+        });
+      }
+      await interaction.deferUpdate();
+      activeDuels.delete(duelId);
+      usersInDuel.delete(duel.challengerId);
+      usersInDuel.delete(duel.opponentId);
+      break;
+
+    case 'cancel':
+      if (interaction.user.id !== duel.challengerId) {
+        return interaction.reply({ content: 'Only the challenger can cancel this duel.', ephemeral: true });
+      }
+      if (duel.status !== 'pending_acceptance') {
+        return interaction.reply({ content: 'This duel can no longer be cancelled.', ephemeral: true });
+      }
+
+      clearTimeout(duel.acceptanceTimeout);
+      if (message) {
+        await message.edit({ 
+          content: `${duel.challengerUser.username} has cancelled the Quickfire duel challenge to ${duel.opponentUser.username}.`, 
+          components: [] 
+        });
+      }
+      await interaction.deferUpdate();
+      activeDuels.delete(duelId);
+      usersInDuel.delete(duel.challengerId);
+      usersInDuel.delete(duel.opponentId);
+      break;
+
+    case 'fire':
+      if (interaction.user.id !== duel.challengerId && interaction.user.id !== duel.opponentId) {
+        return interaction.reply({ content: 'You are not part of this duel.', ephemeral: true });
+      }
+      if (duel.status !== 'active_duel') {
+         // No explicit reply here to avoid spam if multiple clicks, message already updated by winner or timeout
+        return interaction.deferUpdate().catch(() => {}); // Acknowledge the interaction silently
+      }
+
+      clearTimeout(duel.gameTimeout);
+      duel.status = 'finished'; // Mark as finished immediately to prevent race conditions
+      activeDuels.set(duelId, duel); // Update status in collection
+
+      const winner = interaction.user;
+      const loser = (winner.id === duel.challengerId) ? duel.opponentUser : duel.challengerUser;
+
+      if (message) {
+        await message.edit({ 
+          content: `🎉 ${winner.username} wins the Quickfire duel against ${loser.username}! 🎉`, 
+          components: [] 
+        });
+      }
+      await interaction.deferUpdate();
+      // Clean up after a short delay to ensure message edit propagates
+      setTimeout(() => {
+          activeDuels.delete(duelId);
+          usersInDuel.delete(duel.challengerId);
+          usersInDuel.delete(duel.opponentId);
+      }, 100); // Small delay before removing from activeDuels, primarily for safety.
+      break;
+  }
+  // This existing client.on('messageCreate') should be separate
+});
+
+// Monitor messages in AI threads (This was removed, ensure this new handler is separate)
+// client.on('messageCreate', async message => { ... });
 
 // Login to Discord with your token
 client.login(TOKEN);
