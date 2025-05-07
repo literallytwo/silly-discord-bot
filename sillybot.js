@@ -472,17 +472,12 @@ client.on('interactionCreate', async interaction => {
         .setCustomId(`quickfire_deny_${duelId}`)
         .setLabel('Deny')
         .setStyle(ButtonStyle.Danger);
-      const cancelButton = new ButtonBuilder()
-        .setCustomId(`quickfire_cancel_${duelId}`)
-        .setLabel('Cancel Challenge')
-        .setStyle(ButtonStyle.Secondary);
 
       const challengeRow = new ActionRowBuilder().addComponents(acceptButton, denyButton);
-      const cancelRow = new ActionRowBuilder().addComponents(cancelButton);
 
       const challengeMessage = await interaction.reply({
         content: `${opponent}, ${challenger.username} has challenged you to a Quickfire duel! You have 30 seconds to respond.`,
-        components: [challengeRow, cancelRow],
+        components: [challengeRow],
         fetchReply: true
       });
 
@@ -620,63 +615,69 @@ client.on('interactionCreate', async interaction => {
       break;
 
     case 'deny':
-      if (interaction.user.id !== duel.opponentId) {
-        return interaction.reply({ content: 'Only the challenged user can deny this duel.', ephemeral: true });
-      }
       if (duel.status !== 'pending_acceptance') {
-        return interaction.reply({ content: 'This duel can no longer be denied.', ephemeral: true });
+        return interaction.reply({ content: 'This duel can no longer be interacted with in this way.', ephemeral: true });
       }
 
       await interaction.deferUpdate(); // Acknowledge button press first
-
       clearTimeout(duel.acceptanceTimeout);
+
+      let messageContent;
+      let logMessage;
+
+      if (interaction.user.id === duel.opponentId) {
+        // Opponent is denying
+        messageContent = `${duel.opponentUser.username} has denied the Quickfire duel from ${duel.challengerUser.username}.`;
+        logMessage = `Quickfire: Failed to edit message for duel ${duelId} on deny by opponent:`;
+      } else if (interaction.user.id === duel.challengerId) {
+        // Challenger is "denying" (which means cancelling)
+        messageContent = `${duel.challengerUser.username} has cancelled the Quickfire duel challenge to ${duel.opponentUser.username}.`;
+        logMessage = `Quickfire: Failed to edit message for duel ${duelId} on cancel by challenger:`;
+      } else {
+         console.warn(`Quickfire: Unhandled user ${interaction.user.id} tried to deny/cancel duel ${duelId}`);
+      }
+
+      // --- Corrected structure for 'deny' case START ---
+      if (interaction.user.id !== duel.opponentId && interaction.user.id !== duel.challengerId) {
+        return interaction.reply({ content: 'You cannot use this button.', ephemeral: true });
+      }
+      
+      if (duel.status !== 'pending_acceptance') {
+        // This message might need to be more generic if the challenger is cancelling an already accepted duel (not possible with current flow)
+        return interaction.reply({ content: 'This duel can no longer be interacted with in this way.', ephemeral: true });
+      }
+
+      await interaction.deferUpdate(); // Acknowledge button press first
+      clearTimeout(duel.acceptanceTimeout);
+      
+      let finalMessageContent;
+      let logContext;
+
+      if (interaction.user.id === duel.opponentId) {
+        // Opponent is denying
+        finalMessageContent = `${duel.opponentUser.username} has denied the Quickfire duel from ${duel.challengerUser.username}.`;
+        logContext = "deny by opponent";
+      } else { // Must be duel.challengerId due to the check above
+        // Challenger is cancelling
+        finalMessageContent = `${duel.challengerUser.username} has cancelled the Quickfire duel challenge to ${duel.opponentUser.username}.`;
+        logContext = "cancel by challenger";
+      }
       
       try {
         if (message) {
           await message.edit({ 
-            content: `${duel.opponentUser.username} has denied the Quickfire duel from ${duel.challengerUser.username}.`,
+            content: finalMessageContent,
             components: [] 
           });
         }
       } catch (error) {
-        console.error(`Quickfire: Failed to edit message for duel ${duelId} on deny:`, error);
-        // Message edit failed, but the duel is still denied and state must be cleaned up.
+        console.error(`Quickfire: Failed to edit message for duel ${duelId} on ${logContext}:`, error);
       } finally {
-        // Ensure cleanup always happens for deny action
         activeDuels.delete(duelId);
         usersInDuel.delete(duel.challengerId);
         usersInDuel.delete(duel.opponentId);
       }
-      break;
-
-    case 'cancel':
-      if (interaction.user.id !== duel.challengerId) {
-        return interaction.reply({ content: 'Only the challenger can cancel this duel.', ephemeral: true });
-      }
-      if (duel.status !== 'pending_acceptance') {
-        return interaction.reply({ content: 'This duel can no longer be cancelled.', ephemeral: true });
-      }
-
-      await interaction.deferUpdate(); // Acknowledge button press first
-
-      clearTimeout(duel.acceptanceTimeout);
-
-      try {
-        if (message) {
-          await message.edit({ 
-            content: `${duel.challengerUser.username} has cancelled the Quickfire duel challenge to ${duel.opponentUser.username}.`,
-            components: [] 
-          });
-        }
-      } catch (error) {
-        console.error(`Quickfire: Failed to edit message for duel ${duelId} on cancel:`, error);
-        // Message edit failed, but the duel is still cancelled and state must be cleaned up.
-      } finally {
-        // Ensure cleanup always happens for cancel action
-        activeDuels.delete(duelId);
-        usersInDuel.delete(duel.challengerId);
-        usersInDuel.delete(duel.opponentId);
-      }
+      // --- Corrected structure for 'deny' case END ---
       break;
 
     case 'fire':
