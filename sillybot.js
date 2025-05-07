@@ -486,16 +486,21 @@ client.on('interactionCreate', async interaction => {
         fetchReply: true
       });
 
-      const acceptanceTimeout = setTimeout(async () => {
-        const duel = activeDuels.get(duelId);
-        if (duel && duel.status === 'pending_acceptance') {
-          await challengeMessage.edit({
-            content: `The Quickfire duel challenge from ${challenger.username} to ${opponent.username} has expired as ${opponent.username} did not respond.`, 
-            components: [] 
-          });
-          activeDuels.delete(duelId);
-          usersInDuel.delete(challenger.id);
-          usersInDuel.delete(opponent.id);
+      const acceptanceTimeoutId = setTimeout(async () => {
+        const currentDuel = activeDuels.get(duelId);
+        if (currentDuel && currentDuel.status === 'pending_acceptance') {
+          try {
+            await challengeMessage.edit({
+              content: `The Quickfire duel challenge from ${currentDuel.challengerUser.username} to ${currentDuel.opponentUser.username} has expired as ${currentDuel.opponentUser.username} did not respond.`,
+              components: []
+            });
+          } catch (e) {
+            console.error(`Quickfire: Failed to edit message for duel ${duelId} on acceptance timeout:`, e);
+          } finally {
+            activeDuels.delete(duelId);
+            usersInDuel.delete(currentDuel.challengerId);
+            usersInDuel.delete(currentDuel.opponentId);
+          }
         }
       }, 30000);
 
@@ -507,7 +512,7 @@ client.on('interactionCreate', async interaction => {
         status: 'pending_acceptance',
         messageId: challengeMessage.id,
         channelId: interaction.channelId,
-        acceptanceTimeout: acceptanceTimeout,
+        acceptanceTimeout: acceptanceTimeoutId,
         gameTimeout: null,
       });
       usersInDuel.add(challenger.id);
@@ -552,39 +557,66 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: 'This duel can no longer be accepted.', ephemeral: true });
       }
 
+      await interaction.deferUpdate(); // Acknowledge button press first
+
       clearTimeout(duel.acceptanceTimeout);
-      duel.status = 'active_duel';
+      let duelSetupSuccess = false;
 
-      const fireButton = new ButtonBuilder()
-        .setCustomId(`quickfire_fire_${duelId}`)
-        .setLabel('🔥 FIRE! 🔥')
-        .setStyle(ButtonStyle.Primary);
-      const fireRow = new ActionRowBuilder().addComponents(fireButton);
-      
-      if (message) {
-        await message.edit({
-          content: `Duel accepted! ${duel.challengerUser.username} vs ${duel.opponentUser.username}!\nFirst to press FIRE wins! You have 5 seconds!⏳`,
-          components: [fireRow]
-        });
-      }
-      // Ephemeral confirmation for the clicker
-      await interaction.deferUpdate(); 
-
-      duel.gameTimeout = setTimeout(async () => {
-        const currentDuel = activeDuels.get(duelId);
-        if (currentDuel && currentDuel.status === 'active_duel') {
-          if (message) {
-            await message.edit({
-              content: `Time's up! ⌛ It's a TIE between ${currentDuel.challengerUser.username} and ${currentDuel.opponentUser.username}! Nobody pressed the button.`, 
-              components: [] 
-            });
-          }
-          activeDuels.delete(duelId);
-          usersInDuel.delete(currentDuel.challengerId);
-          usersInDuel.delete(currentDuel.opponentId);
+      try {
+        const fireButton = new ButtonBuilder()
+          .setCustomId(`quickfire_fire_${duelId}`)
+          .setLabel('🔥 FIRE! 🔥')
+          .setStyle(ButtonStyle.Primary);
+        const fireRow = new ActionRowBuilder().addComponents(fireButton);
+        
+        if (message) {
+          await message.edit({
+            content: `Duel accepted! ${duel.challengerUser.username} vs ${duel.opponentUser.username}!\nFirst to press FIRE wins! You have 5 seconds!⏳`,
+            components: [fireRow]
+          });
         }
-      }, 5000);
-      activeDuels.set(duelId, duel);
+
+        duel.status = 'active_duel';
+        const gameTimeoutId = setTimeout(async () => {
+          const currentDuelState = activeDuels.get(duelId);
+          if (currentDuelState && currentDuelState.status === 'active_duel') {
+            try {
+              if (message) { // Re-check message as it might have been initially null
+                await message.edit({ 
+                  content: `Time's up! ⌛ It's a TIE between ${currentDuelState.challengerUser.username} and ${currentDuelState.opponentUser.username}! Nobody pressed the button.`, 
+                  components: [] 
+                });
+              }
+            } catch (e) {
+              console.error(`Quickfire: Failed to edit message for duel ${duelId} on game timeout (tie):`, e);
+            } finally {
+              activeDuels.delete(duelId);
+              usersInDuel.delete(currentDuelState.challengerId);
+              usersInDuel.delete(currentDuelState.opponentId);
+            }
+          }
+        }, 5000);
+        duel.gameTimeout = gameTimeoutId;
+        activeDuels.set(duelId, duel); // Update duel in collection
+        duelSetupSuccess = true;
+
+      } catch (error) {
+        console.error(`Quickfire: Failed to process accept for duel ${duelId}:`, error);
+        // Error occurred (likely message.edit), so duel setup failed.
+      }
+
+      if (!duelSetupSuccess) {
+        // Cleanup if acceptance process failed partway
+        activeDuels.delete(duelId);
+        usersInDuel.delete(duel.challengerId);
+        usersInDuel.delete(duel.opponentId);
+        // Optionally, try to inform the user about the failure if possible
+        if (message) {
+            message.edit({content: "Failed to start the duel due to an error. Please try again.", components: []}).catch(e => console.error("Quickfire: error informing user of accept failure", e));
+        } else {
+            interaction.followUp({content: "Failed to start the duel due to an error. Please try again.", ephemeral: true }).catch(e => console.error("Quickfire: error following up user of accept failure", e));
+        }
+      }
       break;
 
     case 'deny':
@@ -595,17 +627,26 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: 'This duel can no longer be denied.', ephemeral: true });
       }
 
+      await interaction.deferUpdate(); // Acknowledge button press first
+
       clearTimeout(duel.acceptanceTimeout);
-      if (message) {
-        await message.edit({ 
-          content: `${duel.opponentUser.username} has denied the Quickfire duel from ${duel.challengerUser.username}.`, 
-          components: [] 
-        });
+      
+      try {
+        if (message) {
+          await message.edit({ 
+            content: `${duel.opponentUser.username} has denied the Quickfire duel from ${duel.challengerUser.username}.`,
+            components: [] 
+          });
+        }
+      } catch (error) {
+        console.error(`Quickfire: Failed to edit message for duel ${duelId} on deny:`, error);
+        // Message edit failed, but the duel is still denied and state must be cleaned up.
+      } finally {
+        // Ensure cleanup always happens for deny action
+        activeDuels.delete(duelId);
+        usersInDuel.delete(duel.challengerId);
+        usersInDuel.delete(duel.opponentId);
       }
-      await interaction.deferUpdate();
-      activeDuels.delete(duelId);
-      usersInDuel.delete(duel.challengerId);
-      usersInDuel.delete(duel.opponentId);
       break;
 
     case 'cancel':
@@ -616,48 +657,65 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: 'This duel can no longer be cancelled.', ephemeral: true });
       }
 
+      await interaction.deferUpdate(); // Acknowledge button press first
+
       clearTimeout(duel.acceptanceTimeout);
-      if (message) {
-        await message.edit({ 
-          content: `${duel.challengerUser.username} has cancelled the Quickfire duel challenge to ${duel.opponentUser.username}.`, 
-          components: [] 
-        });
+
+      try {
+        if (message) {
+          await message.edit({ 
+            content: `${duel.challengerUser.username} has cancelled the Quickfire duel challenge to ${duel.opponentUser.username}.`,
+            components: [] 
+          });
+        }
+      } catch (error) {
+        console.error(`Quickfire: Failed to edit message for duel ${duelId} on cancel:`, error);
+        // Message edit failed, but the duel is still cancelled and state must be cleaned up.
+      } finally {
+        // Ensure cleanup always happens for cancel action
+        activeDuels.delete(duelId);
+        usersInDuel.delete(duel.challengerId);
+        usersInDuel.delete(duel.opponentId);
       }
-      await interaction.deferUpdate();
-      activeDuels.delete(duelId);
-      usersInDuel.delete(duel.challengerId);
-      usersInDuel.delete(duel.opponentId);
       break;
 
     case 'fire':
       if (interaction.user.id !== duel.challengerId && interaction.user.id !== duel.opponentId) {
         return interaction.reply({ content: 'You are not part of this duel.', ephemeral: true });
       }
+      // Defer update early to acknowledge the click immediately
+      await interaction.deferUpdate().catch(() => {}); 
+
       if (duel.status !== 'active_duel') {
-         // No explicit reply here to avoid spam if multiple clicks, message already updated by winner or timeout
-        return interaction.deferUpdate().catch(() => {}); // Acknowledge the interaction silently
+        // Duel already finished or timed out, no further action needed from this click
+        return; 
       }
 
-      clearTimeout(duel.gameTimeout);
-      duel.status = 'finished'; // Mark as finished immediately to prevent race conditions
-      activeDuels.set(duelId, duel); // Update status in collection
+      // Critical: Update status immediately to prevent race conditions from multiple clicks
+      duel.status = 'finished'; 
+      activeDuels.set(duelId, duel); // Persist this status change to the collection
+      clearTimeout(duel.gameTimeout); // Clear the game timeout as someone fired
 
       const winner = interaction.user;
       const loser = (winner.id === duel.challengerId) ? duel.opponentUser : duel.challengerUser;
 
-      if (message) {
-        await message.edit({ 
-          content: `🎉 ${winner.username} wins the Quickfire duel against ${loser.username}! 🎉`, 
-          components: [] 
-        });
+      try {
+        if (message) {
+          await message.edit({ 
+            content: `🎉 ${winner.username} wins the Quickfire duel against ${loser.username}! 🎉`,
+            components: [] 
+          });
+        }
+      } catch (error) {
+        console.error(`Quickfire: Failed to edit message for duel ${duelId} on fire (win):`, error);
+      } finally {
+        // Ensure cleanup happens after a win
+        // A short delay might be good here IF there were concerns about message edit propagation
+        // but primary cleanup of activeDuels should be quick.
+        activeDuels.delete(duelId);
+        usersInDuel.delete(duel.challengerId);
+        usersInDuel.delete(duel.opponentId);
       }
-      await interaction.deferUpdate();
-      // Clean up after a short delay to ensure message edit propagates
-      setTimeout(() => {
-          activeDuels.delete(duelId);
-          usersInDuel.delete(duel.challengerId);
-          usersInDuel.delete(duel.opponentId);
-      }, 100); // Small delay before removing from activeDuels, primarily for safety.
       break;
   }
   // This existing client.on('messageCreate') should be separate
